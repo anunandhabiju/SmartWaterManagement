@@ -1,0 +1,931 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Water Distribution and Management System | UN SDG 6</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Local visual libraries with CDN fallback -->
+    <script src="assets/chart.umd.min.js" onerror="this.src='https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js'"></script>
+    <script src="assets/cytoscape.min.js" onerror="this.src='https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.30.4/cytoscape.min.js'"></script>
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-icon">💧</div>
+            <div class="brand-text">
+                <h1>AquaFlow Smart</h1>
+                <span class="sdg-badge">UN SDG 6: Clean Water</span>
+            </div>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item">
+                <a class="nav-link active" data-page="dashboard">
+                    <span class="nav-icon">📊</span>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="tanks">
+                    <span class="nav-icon">🛢️</span>
+                    <span>Water Tanks</span>
+                    <span class="ds-tag">Arrays</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="areas">
+                    <span class="nav-icon">🏙️</span>
+                    <span>Areas & Demand</span>
+                    <span class="ds-tag">BST</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="distribution">
+                    <span class="nav-icon">🚰</span>
+                    <span>Water Allocation</span>
+                    <span class="ds-tag">Priority</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="shortages">
+                    <span class="nav-icon">⚠️</span>
+                    <span>Shortage Reports</span>
+                    <span class="ds-tag">Analytics</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="complaints">
+                    <span class="nav-icon">📢</span>
+                    <span>Complaints Queue</span>
+                    <span class="ds-tag">Circular Q</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="maintenance">
+                    <span class="nav-icon">🔧</span>
+                    <span>Maintenance Orders</span>
+                    <span class="ds-tag">Linked List</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="network">
+                    <span class="nav-icon">🌐</span>
+                    <span>Pipeline Network</span>
+                    <span class="ds-tag">Graphs</span>
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-page="simulation">
+                    <span class="nav-icon">⚡</span>
+                    <span>Leakage Simulator</span>
+                    <span class="ds-tag">Simulation</span>
+                </a>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <div class="backend-indicator">
+                <span class="status-dot"></span>
+                <span>C Backend Engine</span>
+            </div>
+            <div>Mongoose HTTP + cJSON</div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="main-wrapper">
+        <header class="top-header">
+            <div class="header-left">
+                <button class="menu-toggle" id="menu-toggle">☰</button>
+                <h2 class="page-title" id="page-title">Operational Dashboard</h2>
+            </div>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-sm" id="btn-refresh" title="Refresh Live State">🔄 Refresh</button>
+                <button class="btn btn-primary btn-sm" id="btn-quick-auto-dist">⚡ Auto Distribute</button>
+                <button class="btn btn-danger btn-sm" id="btn-reset-demo" title="Reset to Sample Demo Dataset">♻️ Reset Demo</button>
+            </div>
+        </header>
+
+        <main class="content-area">
+            <!-- Global System Alerts -->
+            <div class="notification-container" id="notification-container"></div>
+
+            <!-- ================= PAGE 1: DASHBOARD ================= -->
+            <section class="page-view active" id="view-dashboard">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Total Capacity</span>
+                            <div class="stat-icon">🛢️</div>
+                        </div>
+                        <div class="stat-value" id="stat-total-capacity">0 L</div>
+                        <div class="stat-meta">Maximum reservoir storage</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Available Water</span>
+                            <div class="stat-icon" style="background:#e0f2fe;color:#0284c7;">💧</div>
+                        </div>
+                        <div class="stat-value" id="stat-available-water">0 L</div>
+                        <div class="stat-meta" id="stat-available-pct">0% stored</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Water Distributed</span>
+                            <div class="stat-icon" style="background:#d1fae5;color:#10b981;">🚰</div>
+                        </div>
+                        <div class="stat-value" id="stat-distributed">0 L</div>
+                        <div class="stat-meta">Delivered to consumers</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Unmet Demand</span>
+                            <div class="stat-icon" style="background:#fee2e2;color:#ef4444;">⚠️</div>
+                        </div>
+                        <div class="stat-value" id="stat-unmet-demand">0 L</div>
+                        <div class="stat-meta" id="stat-fulfillment-pct">0% fulfilled</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Pending Complaints</span>
+                            <div class="stat-icon" style="background:#fef3c7;color:#f59e0b;">📢</div>
+                        </div>
+                        <div class="stat-value" id="stat-pending-complaints">0</div>
+                        <div class="stat-meta">Circular Queue FIFO buffer</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-header">
+                            <span class="stat-title">Leakage Losses</span>
+                            <div class="stat-icon" style="background:#fee2e2;color:#b91c1c;">🌊</div>
+                        </div>
+                        <div class="stat-value" id="stat-leakage-losses">0 L</div>
+                        <div class="stat-meta">Simulated pipe network loss</div>
+                    </div>
+                </div>
+
+                <!-- Visualization Charts -->
+                <div class="charts-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Tank Water Levels (Litres & %)</h3>
+                            <span class="ds-tag">Array Traversal</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-tanks"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Demand vs Supply by Area</h3>
+                            <span class="ds-tag">BST Inorder</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-demand-supply"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Water Allocation & Storage Balance</h3>
+                            <span class="ds-tag">Water Accounting</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-water-balance"></canvas>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">Consumer Complaints Breakdown</h3>
+                            <span class="ds-tag">Circular Queue</span>
+                        </div>
+                        <div class="chart-wrapper">
+                            <canvas id="chart-complaints-breakdown"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Activities Section -->
+                <div class="card">
+                    <div class="card-header">
+                        <h3 class="card-title">Recent Real-time Activity Feed</h3>
+                        <span class="badge badge-success">Backend Event Log</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Timestamp</th>
+                                    <th>System Subsystem</th>
+                                    <th>Operation Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-recent-activities">
+                                <tr><td colspan="4" style="text-align:center;">Loading activity log...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 2: WATER TANKS ================= -->
+            <section class="page-view" id="view-tanks">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Reservoirs & Storage Tanks</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Managed using an Array in C with strict capacity and non-negative bounds checking.
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary btn-sm" id="btn-open-add-tank">+ Add New Tank</button>
+                            <button class="btn btn-success btn-sm" id="btn-open-refill-tank">💧 Add Water</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Tank ID</th>
+                                    <th>Reservoir Name</th>
+                                    <th>Location Zone</th>
+                                    <th>Capacity (L)</th>
+                                    <th>Current Level (L)</th>
+                                    <th>Fill Level (%)</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-tanks-body">
+                                <tr><td colspan="8" style="text-align:center;">Loading tanks...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="viva-box">
+                        <div class="viva-title">🎓 Data Structures Viva Note: Fixed/Bounded Arrays</div>
+                        Tanks are stored in a contiguous array of structs (`Tank g_tanks[MAX_TANKS]`). Array elements offer <strong>O(1)</strong> direct index lookup. Water addition strictly verifies the upper boundary: <code>current_level + amount <= capacity</code>, while water deduction prevents negative underflow: <code>current_level - amount >= 0</code>.
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 3: AREAS & DEMAND (BST) ================= -->
+            <section class="page-view" id="view-areas">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Distribution Areas & Water Demands</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Keyed by unique Area ID in a dynamic Binary Search Tree (BST) in C.
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary btn-sm" id="btn-open-add-area">+ Register Area</button>
+                        </div>
+                    </div>
+
+                    <!-- BST Search Bar -->
+                    <div style="display:flex;gap:10px;margin-bottom:18px;">
+                        <input type="number" class="form-control" style="max-width:240px;" id="input-bst-search-id" placeholder="Enter Area ID (e.g. 101)">
+                        <button class="btn btn-secondary btn-sm" id="btn-bst-search">🔍 BST Search O(log n)</button>
+                        <button class="btn btn-secondary btn-sm" id="btn-bst-clear-search">Clear Search</button>
+                    </div>
+                    <div id="bst-search-result-banner" style="display:none;margin-bottom:16px;"></div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Area ID (BST Key)</th>
+                                    <th>Area Name</th>
+                                    <th>Category</th>
+                                    <th>Priority Tier</th>
+                                    <th>Water Demand (L)</th>
+                                    <th>Water Supplied (L)</th>
+                                    <th>Unmet Demand (L)</th>
+                                    <th>Fulfillment</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-areas-body">
+                                <tr><td colspan="8" style="text-align:center;">Loading areas...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="viva-box">
+                        <div class="viva-title">🎓 Data Structures Viva Note: Binary Search Tree (BST)</div>
+                        Areas are managed as dynamically allocated nodes (<code>malloc</code>/<code>free</code>) in a Binary Search Tree keyed on unique <code>area_id</code>. BST search and insertion operate in average <strong>O(log n)</strong> time for balanced configurations and <strong>O(n)</strong> worst-case if skewed. Performing an <strong>Inorder Traversal</strong> (Left $\to$ Root $\to$ Right) inherently retrieves and displays all areas in ascending numerical order of their Area IDs! Duplicate IDs are rejected at insertion.
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 4: WATER DISTRIBUTION ================= -->
+            <section class="page-view" id="view-distribution">
+                <div class="charts-grid">
+                    <!-- Manual Allocation Panel -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">1. Manual Water Allocation</h3>
+                            <span class="badge badge-info">Direct Dispatch</span>
+                        </div>
+                        <form id="form-manual-dist">
+                            <div class="form-group">
+                                <label class="form-label">Select Source Tank</label>
+                                <select class="form-control" id="dist-source-tank" required>
+                                    <option value="">-- Choose Reservoir --</option>
+                                </select>
+                                <div class="form-hint" id="hint-tank-water">Available water: -- L</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Select Destination Area (BST)</label>
+                                <select class="form-control" id="dist-dest-area" required>
+                                    <option value="">-- Choose Consumer Area --</option>
+                                </select>
+                                <div class="form-hint" id="hint-area-demand">Current unmet demand: -- L</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Quantity to Distribute (Litres)</label>
+                                <input type="number" step="1000" min="1" class="form-control" id="dist-amount" placeholder="e.g. 50000" required>
+                            </div>
+                            <button type="submit" class="btn btn-primary" style="width:100%;">Dispatch Water</button>
+                        </form>
+                    </div>
+
+                    <!-- Automatic Priority Allocation Panel -->
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 class="card-title">2. Automatic Priority Allocation</h3>
+                            <span class="badge badge-hospital">SDG 6 Priority Engine</span>
+                        </div>
+                        <p style="font-size:13.5px;color:var(--text-secondary);margin-bottom:16px;">
+                            The C backend distributes available tank water using a configurable priority ordering policy:
+                        </p>
+                        <div style="background:#f8fafc;padding:14px;border-radius:var(--radius-md);margin-bottom:18px;border:1px solid var(--border);">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <span class="badge badge-hospital">Priority 1 (Critical)</span>
+                                <span style="font-size:13px;font-weight:600;">Hospitals & Healthcare Facilities</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <span class="badge badge-commercial">Priority 2 (Economic)</span>
+                                <span style="font-size:13px;font-weight:600;">Commercial & Industrial Complexes</span>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:10px;">
+                                <span class="badge badge-residential">Priority 3 (General)</span>
+                                <span style="font-size:13px;font-weight:600;">Residential Zones</span>
+                            </div>
+                        </div>
+                        <p style="font-size:12px;color:var(--text-muted);margin-bottom:18px;">
+                            <em>Note: This is an academic simulation policy to prioritize essential public health services during drought or water scarcity scenarios.</em>
+                        </p>
+                        <button class="btn btn-success" id="btn-run-auto-dist" style="width:100%;">⚡ Execute Automatic Allocation</button>
+                        <div id="auto-dist-result" style="margin-top:14px;font-size:13px;"></div>
+                    </div>
+                </div>
+
+                <!-- Distribution History Table -->
+                <div class="card" style="margin-top:24px;">
+                    <div class="card-header">
+                        <h3 class="card-title">Water Allocation History</h3>
+                        <span class="ds-tag">Water Ledger</span>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Record ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Source Reservoir</th>
+                                    <th>Destination Area</th>
+                                    <th>Quantity (L)</th>
+                                    <th>Allocation Mode</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-distribution-history">
+                                <tr><td colspan="7" style="text-align:center;">No distribution records yet.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 5: SHORTAGE REPORTS ================= -->
+            <section class="page-view" id="view-shortages">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Water Shortage Detection & SDG 6 Compliance Report</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Real-time demand shortfall detection and equity metrics computed by the C backend.
+                            </p>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="window.print()">🖨️ Print / Save Report</button>
+                    </div>
+
+                    <!-- Summary KPI Box -->
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;background:#f8fafc;padding:18px;border-radius:var(--radius-md);margin-bottom:24px;border:1px solid var(--border);">
+                        <div>
+                            <div style="font-size:12px;color:var(--text-muted);">Total Demand</div>
+                            <div style="font-size:20px;font-weight:700;" id="report-total-demand">0 L</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-muted);">Total Supplied</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--success);" id="report-total-supplied">0 L</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-muted);">Total Unmet Shortage</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--danger);" id="report-total-unmet">0 L</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-muted);">Simulated Leak Loss</div>
+                            <div style="font-size:20px;font-weight:700;color:var(--warning);" id="report-leakage-loss">0 L</div>
+                        </div>
+                        <div>
+                            <div style="font-size:12px;color:var(--text-muted);">Demand Satisfaction</div>
+                            <div style="font-size:20px;font-weight:700;" id="report-satisfaction-pct">0%</div>
+                        </div>
+                    </div>
+
+                    <!-- Filter Controls -->
+                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;">
+                        <span style="font-size:13px;font-weight:600;">Filter by Status:</span>
+                        <select class="form-control" style="max-width:200px;" id="select-shortage-filter">
+                            <option value="ALL">All Areas</option>
+                            <option value="SHORTAGE">Areas with Shortages Only</option>
+                            <option value="HOSPITAL">Essential Services (Hospitals)</option>
+                            <option value="FULFILLED">Fully Fulfilled Only</option>
+                        </select>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Area ID</th>
+                                    <th>Area Name</th>
+                                    <th>Category</th>
+                                    <th>Priority</th>
+                                    <th>Demand (L)</th>
+                                    <th>Supplied (L)</th>
+                                    <th>Shortage / Unmet (L)</th>
+                                    <th>Fulfilment %</th>
+                                    <th>Compliance Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-shortages-body">
+                                <tr><td colspan="9" style="text-align:center;">Loading shortage data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 6: COMPLAINTS (CIRCULAR QUEUE) ================= -->
+            <section class="page-view" id="view-complaints">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Consumer Complaints Circular Queue</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Implemented in C as a Circular FIFO Queue with bounded capacity and modulo index arithmetic.
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary btn-sm" id="btn-open-register-complaint">+ Register Complaint</button>
+                            <button class="btn btn-success btn-sm" id="btn-process-next-complaint">⚡ Process Next (FIFO)</button>
+                        </div>
+                    </div>
+
+                    <!-- Circular Queue Visualizer Slots -->
+                    <div style="margin-bottom:20px;">
+                        <h4 style="font-size:14px;margin-bottom:8px;">Live Circular Queue Buffer (Slots):</h4>
+                        <div class="queue-slots-row" id="queue-slots-row">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Order</th>
+                                    <th>Complaint ID</th>
+                                    <th>Timestamp</th>
+                                    <th>Area Name</th>
+                                    <th>Issue Category</th>
+                                    <th>Description</th>
+                                    <th>Priority</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-complaints-body">
+                                <tr><td colspan="8" style="text-align:center;">No pending complaints in queue.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="viva-box">
+                        <div class="viva-title">🎓 Data Structures Viva Note: Circular Queue</div>
+                        Unlike a linear array queue which suffers from false-overflow or requires expensive shifting, a <strong>Circular Queue</strong> treats the array as a ring using modulo arithmetic: <code>rear = (rear + 1) % MAX_CAPACITY</code> and <code>front = (front + 1) % MAX_CAPACITY</code>. It operates strictly in <strong>FIFO (First-In, First-Out)</strong> order in <strong>O(1)</strong> enqueue and dequeue operations. When a complaint is processed, it is dequeued from this circular queue and a maintenance work order is dynamically inserted into the Singly Linked List!
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 7: MAINTENANCE (LINKED LIST) ================= -->
+            <section class="page-view" id="view-maintenance">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Maintenance Work Orders (Singly Linked List)</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Dynamically allocated nodes in C with malloc/free, supporting insertion, status updating, and resolved record deletion.
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-primary btn-sm" id="btn-open-add-maintenance">+ New Maintenance Order</button>
+                            <button class="btn btn-danger btn-sm" id="btn-purge-resolved">🗑️ Purge Resolved Nodes</button>
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Order ID</th>
+                                    <th>Complaint ID</th>
+                                    <th>Target Location</th>
+                                    <th>Issue Description</th>
+                                    <th>Assigned Technician</th>
+                                    <th>Created At</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-maintenance-body">
+                                <tr><td colspan="8" style="text-align:center;">Loading maintenance records...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="viva-box">
+                        <div class="viva-title">🎓 Data Structures Viva Note: Singly Linked List</div>
+                        Maintenance records are managed via a singly linked list with nodes containing dynamic pointers: <code>struct MaintenanceNode *next</code>. New work orders are inserted at head in <strong>O(1)</strong> time using <code>malloc()</code>. Deleting resolved records traverses the list and safely frees node memory with <code>free()</code>, rewiring the preceding node's <code>next</code> pointer and properly adjusting the head when the first node is removed.
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 8: PIPELINE NETWORK (GRAPH) ================= -->
+            <section class="page-view" id="view-network">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Pipeline Graph Topology & Connectivity</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Graph represented as an Adjacency List in C. BFS calculates reachable shortest paths; DFS explores components.
+                            </p>
+                        </div>
+                        <div style="display:flex;gap:10px;">
+                            <button class="btn btn-secondary btn-sm" id="btn-cy-fit">🎯 Center View</button>
+                            <button class="btn btn-success btn-sm" id="btn-reconnect-all-pipes">🔄 Reconnect All Pipelines</button>
+                        </div>
+                    </div>
+
+                    <!-- Network Algorithms Control Toolbar -->
+                    <div class="network-controls">
+                        <!-- BFS Controls -->
+                        <div style="display:flex;gap:8px;align-items:center;">
+                            <span style="font-weight:600;font-size:13px;">BFS Shortest Path:</span>
+                            <select class="form-control" style="width:180px;" id="bfs-start-node">
+                                <option value="1">Res 1: North Hill</option>
+                                <option value="2">Res 2: East River</option>
+                            </select>
+                            <span>➔</span>
+                            <select class="form-control" style="width:190px;" id="bfs-target-node">
+                                <!-- Populated dynamically with destination areas -->
+                            </select>
+                            <button class="btn btn-primary btn-sm" id="btn-run-bfs">Run BFS</button>
+                        </div>
+
+                        <!-- Failure Simulation Controls -->
+                        <div style="display:flex;gap:8px;align-items:center;margin-left:auto;">
+                            <span style="font-weight:600;font-size:13px;color:var(--danger);">Simulate Cut:</span>
+                            <select class="form-control" style="width:200px;" id="sim-fail-pipe">
+                                <!-- Populated dynamically -->
+                            </select>
+                            <button class="btn btn-danger btn-sm" id="btn-run-fail-sim">Simulate Failure</button>
+                        </div>
+                    </div>
+
+                    <!-- Algorithm Output Banner -->
+                    <div id="graph-algo-banner" style="display:none;margin-bottom:14px;"></div>
+
+                    <!-- Cytoscape Canvas -->
+                    <div id="cy-network"></div>
+
+                    <!-- Graph Legend -->
+                    <div class="network-legend">
+                        <div class="legend-item"><div class="legend-color" style="background:#0284c7;"></div><span>Reservoir (Source)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#0d9488;"></div><span>Junction (Trunk)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#8b5cf6;"></div><span>Hospital (Priority 1)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#3b82f6;"></div><span>Commercial (Priority 2)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#64748b;"></div><span>Residential (Priority 3)</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#ef4444;border:1px dashed #fff;"></div><span>Disabled / Cut Pipeline</span></div>
+                        <div class="legend-item"><div class="legend-color" style="background:#f59e0b;"></div><span>BFS Path Highlight</span></div>
+                    </div>
+
+                    <div class="viva-box">
+                        <div class="viva-title">🎓 Data Structures Viva Note: Graphs & BFS/DFS</div>
+                        The pipeline grid is modeled as an <strong>Adjacency List Graph</strong> in C (array of vertices where each vertex has a linked list of edges). <strong>Breadth-First Search (BFS)</strong> traverses level-by-level using an integer queue to discover the minimum hop route between reservoir and consumer, accumulating pipeline distance. <strong>Depth-First Search (DFS)</strong> explores connected subgraphs to detect network partitioning when a pipeline fails. <em>Note: This performs topological connectivity analysis; it does not model hydraulic pressure head or friction factor calculations.</em>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ================= PAGE 9: LEAKAGE SIMULATION ================= -->
+            <section class="page-view" id="view-simulation">
+                <div class="card">
+                    <div class="card-header">
+                        <div>
+                            <h3 class="card-title">Pipeline Leakage & Water Loss Simulation</h3>
+                            <p style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                                Simulates pipeline bursts, updates water balances, and triggers automated emergency complaints.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="charts-grid">
+                        <div>
+                            <form id="form-leakage-sim">
+                                <div class="form-group">
+                                    <label class="form-label">Select Pipeline Connection</label>
+                                    <select class="form-control" id="sim-leak-pipeline" required>
+                                        <!-- Populated dynamically -->
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Simulated Water Loss Quantity (Litres)</label>
+                                    <input type="number" step="1000" min="500" class="form-control" id="sim-leak-loss" value="15000" required>
+                                    <div class="form-hint">Deducts water from the supply network and logs non-revenue water loss.</div>
+                                </div>
+                                <button type="submit" class="btn btn-danger" style="width:100%;">⚡ Trigger Leakage Event</button>
+                            </form>
+                        </div>
+
+                        <div style="background:#f8fafc;padding:20px;border-radius:var(--radius-md);border:1px solid var(--border);">
+                            <h4 style="font-size:14px;margin-bottom:12px;">Automated Cascading Workflow:</h4>
+                            <ol style="font-size:13px;color:var(--text-secondary);padding-left:18px;display:flex;flex-direction:column;gap:10px;">
+                                <li>The simulated water loss is deducted from the source storage tank.</li>
+                                <li>The cumulative system leakage loss metric is updated in memory.</li>
+                                <li>A <strong>High Priority Complaint</strong> is automatically enqueued into the Circular Queue with simulated sensor alarm details.</li>
+                                <li>When operators process the queue, a field maintenance work order is dynamically scheduled.</li>
+                            </ol>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ================= MODALS ================= -->
+
+    <!-- Add Tank Modal -->
+    <div class="modal-overlay" id="modal-add-tank">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Add New Water Tank</h3>
+                <button class="modal-close" data-close="modal-add-tank">✕</button>
+            </div>
+            <form id="form-add-tank">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Tank / Reservoir Name</label>
+                        <input type="text" class="form-control" id="tank-name" placeholder="e.g. West Ridge Reservoir" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Total Capacity (Litres)</label>
+                        <input type="number" step="1000" min="1000" class="form-control" id="tank-cap" placeholder="e.g. 300000" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Initial Water Level (Litres)</label>
+                        <input type="number" step="1000" min="0" class="form-control" id="tank-init-level" placeholder="e.g. 150000" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Location / Sector Zone</label>
+                        <input type="text" class="form-control" id="tank-loc" placeholder="e.g. Sector 12 - High Ground">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-add-tank">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Create Tank</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Refill Tank Modal -->
+    <div class="modal-overlay" id="modal-refill-tank">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Refill / Add Water to Tank</h3>
+                <button class="modal-close" data-close="modal-refill-tank">✕</button>
+            </div>
+            <form id="form-refill-tank">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Select Tank</label>
+                        <select class="form-control" id="refill-tank-id" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Water Quantity to Add (Litres)</label>
+                        <input type="number" step="1000" min="1" class="form-control" id="refill-amount" placeholder="e.g. 25000" required>
+                        <div class="form-hint">The C backend rejects additions that would exceed maximum capacity.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-refill-tank">Cancel</button>
+                    <button type="submit" class="btn btn-success">Refill Water</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Area Modal -->
+    <div class="modal-overlay" id="modal-add-area">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Register Consumer Area (BST)</h3>
+                <button class="modal-close" data-close="modal-add-area">✕</button>
+            </div>
+            <form id="form-add-area">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Area ID (Unique BST Search Key)</label>
+                        <input type="number" class="form-control" id="area-id" placeholder="e.g. 107" required>
+                        <div class="form-hint">Duplicate Area IDs are strictly rejected by the BST algorithm.</div>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Area Name</label>
+                        <input type="text" class="form-control" id="area-name" placeholder="e.g. Memorial Children's Hospital" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Category</label>
+                        <select class="form-control" id="area-cat" required>
+                            <option value="Hospital">Hospital / Healthcare Facility</option>
+                            <option value="Commercial">Commercial / Business District</option>
+                            <option value="Residential">Residential Community</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Priority Tier</label>
+                        <select class="form-control" id="area-priority" required>
+                            <option value="1">Priority 1: Critical (Essential Service / Hospital)</option>
+                            <option value="2">Priority 2: Commercial / Economic</option>
+                            <option value="3" selected>Priority 3: General Residential</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Daily Water Demand (Litres)</label>
+                        <input type="number" step="1000" min="1" class="form-control" id="area-demand" placeholder="e.g. 120000" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-add-area">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Insert into BST</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Register Complaint Modal -->
+    <div class="modal-overlay" id="modal-register-complaint">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Register Water Complaint (Circular Queue)</h3>
+                <button class="modal-close" data-close="modal-register-complaint">✕</button>
+            </div>
+            <form id="form-register-complaint">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Area Location</label>
+                        <select class="form-control" id="comp-area-id" required>
+                            <!-- Populated dynamically from BST -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Complaint Issue Type</label>
+                        <select class="form-control" id="comp-type" required>
+                            <option value="Leakage">Pipeline Leakage</option>
+                            <option value="Low Pressure">Low Water Pressure</option>
+                            <option value="No Water Supply">Complete Supply Disruption</option>
+                            <option value="Other">Water Quality / Other</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Issue Description</label>
+                        <textarea class="form-control" id="comp-desc" rows="3" placeholder="Describe the water outage or observed leak..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Priority</label>
+                        <select class="form-control" id="comp-priority" required>
+                            <option value="High">High Priority</option>
+                            <option value="Medium" selected>Medium Priority</option>
+                            <option value="Low">Low Priority</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-register-complaint">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Enqueue Complaint</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- New Maintenance Order Modal -->
+    <div class="modal-overlay" id="modal-add-maintenance">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">New Maintenance Work Order (Linked List)</h3>
+                <button class="modal-close" data-close="modal-add-maintenance">✕</button>
+            </div>
+            <form id="form-add-maintenance">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Location / Target Area</label>
+                        <input type="text" class="form-control" id="maint-area" placeholder="e.g. North Divide Junction J-1" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Issue Description</label>
+                        <textarea class="form-control" id="maint-issue" rows="2" placeholder="e.g. Booster pump valve replacement" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Assigned Technician</label>
+                        <input type="text" class="form-control" id="maint-tech" placeholder="e.g. Lead Tech Sarah Connor">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" id="maint-status" required>
+                            <option value="Pending">Pending</option>
+                            <option value="In Progress" selected>In Progress</option>
+                            <option value="Resolved">Resolved</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-add-maintenance">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Insert Node into Linked List</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Update Maintenance Status Modal -->
+    <div class="modal-overlay" id="modal-update-maint-status">
+        <div class="modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Update Maintenance Work Order Status</h3>
+                <button class="modal-close" data-close="modal-update-maint-status">✕</button>
+            </div>
+            <form id="form-update-maint-status">
+                <input type="hidden" id="update-maint-id">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <select class="form-control" id="update-maint-status" required>
+                            <option value="Pending">Pending</option>
+                            <option value="In Progress">In Progress</option>
+                            <option value="Resolved">Resolved (Mark Complete)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Field Technician Name</label>
+                        <input type="text" class="form-control" id="update-maint-tech" placeholder="e.g. Eng. Sarah Connor">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-close="modal-update-maint-status">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Status</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container"></div>
+
+    <!-- Frontend JavaScript Modules -->
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+    <script src="js/tanks.js"></script>
+    <script src="js/areas.js"></script>
+    <script src="js/distribution.js"></script>
+    <script src="js/complaints.js"></script>
+    <script src="js/maintenance.js"></script>
+    <script src="js/network.js"></script>
+    <script src="js/simulation.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
